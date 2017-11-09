@@ -4,7 +4,7 @@ See our [FastTrack for Azure landing page](https://github.com/Azure/FastTrackFor
 
 # Managed Disks Scenarios
 
-* Azure Policies (wip)
+* [Azure Policies](./azure-policies/articles/azure-policies-for-managed-disks.md)
 
 # Contributing
 
