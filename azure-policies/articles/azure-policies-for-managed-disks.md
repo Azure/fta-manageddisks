@@ -19,7 +19,7 @@ To complete this walkthrough, you will need:
 1. Open a PowerShell session with the Azure PowerShell modules loaded.
 
 2. Login to Azure and select the subscripton to create the policy.
-
+    > Note: Substitute the placeholder in the code with your subscription ID.
 ```powershell
 Login-AzureRmAccount
 
@@ -161,6 +161,7 @@ az policy definition create --name DenyUnmanagedDisks --description "This policy
 ```
 
 4. Create the policy assignment. After this completes successfully, the policy will be enforced in the specified scope.
+    > Note: Substitute `{subscription_id}` in the code with your subscription ID.
 ```azurecli
 az policy assignment create --name DenyUnmanagedDisksAssignment --policy DenyUnmanagedDisks --scope /subscriptions/{subscription_id}
 ```
