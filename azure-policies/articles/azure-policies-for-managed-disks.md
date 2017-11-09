@@ -23,7 +23,7 @@ To complete this walkthrough, you will need:
 ```powershell
 Login-AzureRmAccount
 
-Select-AzureRmAccount -SubscrpitionId xxxxxx-xxxxxx-xxxxxx-xxxxxx
+Select-AzureRmSubscription -SubscrpitionId xxxxxx-xxxxxx-xxxxxx-xxxxxx
 ```
 
 3. Define the variables to name the policy definition, the policy description, and the policy rule. The policy rule in this walkthrough is set to **deny** the creation of VMs and VM Scale Sets not leveraging managed disks. If you want to **audit** the creation of VMs and VM Scale Sets not leveraging managed disks, simply replace *deny* with *audit* in the policy definition.
