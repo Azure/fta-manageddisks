@@ -16,75 +16,75 @@ To complete this walkthrough, you will need:
 
 2. Login to Azure and select the subscripton to create the policy.
 
->...
-> Login-AzureRmAccount
->
-> Select-AzureRmAccount -SubscrpitionId xxxxxx-xxxxxx-xxxxxx-xxxxxx
->...
+```powershell
+Login-AzureRmAccount
+
+Select-AzureRmAccount -SubscrpitionId xxxxxx-xxxxxx-xxxxxx-xxxxxx
+```
 
 3. Define the variables to name the policy definition, the policy description, and the policy rule. The policy rule in this walkthrough is set to **deny** the creation of VMs and VM Scale Sets not leveraging managed disks. If you want to **audit** the creation of VMs and VM Scale Sets not leveraging managed disks, simply replace *deny* with *audit* in the policy definition.
->...
-> $policyName = "DenyUnmanagedDisks"
-> $policyDescription = "This policy will deny the creation of VMs and VMSSs that do not use managed disks"
-> 
-> $policyRule = '
-> {
->   "if": {
->     "anyOf": [
->       {
->         "allOf": [
->           {
->             "field": "type",
->             "equals": "Microsoft.Compute/virtualMachines"
->           },
->           {
->             "field": "Microsoft.Compute/virtualMachines/osDisk.uri",
->             "exists": "True"
->           }
->         ]
->       },
->       {
->         "allOf": [
->           {
->             "field": "type",
->             "equals": "Microsoft.Compute/VirtualMachineScaleSets"
->           },
->           {
->             "anyOf": [
->               {
->                 "field": "Microsoft.Compute/VirtualMachineScaleSets/osDisk.vhdContainers",
->                 "exists": "True"
->               },
->               {
->                 "field": "Microsoft.Compute/VirtualMachineScaleSets/osdisk.imageUrl",
->                 "exists": "True"
->               }
->             ]
->           }
->         ]
->       }
->     ]
->   },
->   "then": {
->     "effect": "deny"
->   }
-> }'
->...
+```powershell
+$policyName = "DenyUnmanagedDisks"
+$policyDescription = "This policy will deny the creation of VMs and VMSSs that do not use naged disks"
+
+$policyRule = '
+{
+  "if": {
+    "anyOf": [
+      {
+        "allOf": [
+          {
+            "field": "type",
+            "equals": "Microsoft.Compute/virtualMachines"
+          },
+          {
+            "field": "Microsoft.Compute/virtualMachines/osDisk.uri",
+            "exists": "True"
+          }
+        ]
+      },
+      {
+        "allOf": [
+          {
+            "field": "type",
+            "equals": "Microsoft.Compute/VirtualMachineScaleSets"
+          },
+          {
+            "anyOf": [
+              {
+                "field": "Microsoft.Compute/VirtualMachineScaleSets/osDisk.vhdContainers",
+                "exists": "True"
+              },
+              {
+                "field": "Microsoft.Compute/VirtualMachineScaleSets/osdisk.imageUrl",
+                "exists": "True"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "then": {
+    "effect": "deny"
+  }
+}'
+```
 
 4. Create the policy definition. This is only creating the definition of the policy and it is not being enforced.
->...
-> New-AzureRmPolicyDefinition -Name $policyName -Description $policyDescription -Policy $policyRule
->...
+```powershell
+New-AzureRmPolicyDefinition -Name $policyName -Description $policyDescription -Policy $policyRule
+```
 
 5. Prepare variables to create a policy assignment where the scope is the entire subscription.
->...
-> $policyDefinition = Get-AzureRmPolicyDefinition -Name $policyName
-> $sub = "/subscriptions/" + (Get-AzureRmContext).Subscription.Id
-> $assignmentName = "DenyUnmanagedDisksAssignment"
->...
+```powershell
+$policyDefinition = Get-AzureRmPolicyDefinition -Name $policyName
+$sub = "/subscriptions/" + (Get-AzureRmContext).Subscription.Id
+$assignmentName = "DenyUnmanagedDisksAssignment"
+```
 
 6. Create the policy assignment. After this completes successfully, the policy will be enforced in the specified scope.
->...
-> New-AzureRmPolicyAssignment -Name $assignmentName -Scope $sub -PolicyDefinition $policyDefinition -Description $policyDescription
->...
+```powershell
+New-AzureRmPolicyAssignment -Name $assignmentName -Scope $sub -PolicyDefinition $policyDefinition -Description $policyDescription
+```
 
