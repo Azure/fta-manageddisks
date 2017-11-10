@@ -93,12 +93,12 @@ New-AzureRmPolicyAssignment -Name $assignmentName -Scope $sub -PolicyDefinition 
 ```
 
 ## Removing Azure Policies with PowerShell
-7. Remove the policy assignment. This will stop the enforcement of the policy but it will not remove the policy definition from the subscription. 
+1. Remove the policy assignment. This will stop the enforcement of the policy but it will not remove the policy definition from the subscription. 
 ```powershell
 Remove-AzureRmPolicyAssignment -Name $assignmentName -Scope $sub
 ```
 
-8. Remove the policy definition. A policy definition can only be removed after all assignments of the definition have been removed.
+2. Remove the policy definition. A policy definition can only be removed after all assignments of the definition have been removed.
 ```powershell
 Remove-AzureRmPolicyDefinition -Name $policyName
 ```
@@ -172,12 +172,12 @@ az policy assignment show --name DenyUnmanagedDisksAssignment
 ```
 
 ## Removing Azure Policies with the Azure CLI
-6. Remove the policy assignment. This will stop the enforcement of the policy but it will not remove the policy definition from the subscription. 
+1. Remove the policy assignment. This will stop the enforcement of the policy but it will not remove the policy definition from the subscription. 
 ```azurecli
 az policy assignment delete --name DenyUnmanagedDisksAssignment
 ```
 
-7. Remove the policy definition. A policy definition can only be removed after all assignments of the definition have been removed.
+2. Remove the policy definition. A policy definition can only be removed after all assignments of the definition have been removed.
 ```azurecli
 az policy definition delete --name DenyUnmanagedDisksAssignment
 ```
