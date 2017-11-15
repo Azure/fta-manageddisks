@@ -4,8 +4,17 @@ See our [FastTrack for Azure landing page](https://github.com/Azure/FastTrackFor
 
 # Managed Disks Scenarios
 
-* [Azure Policies](./azure-policies/articles/azure-policies-for-managed-disks.md)
-* [Convert VMs to Managed Disks](./azure-convertVMtoMD/articles/azure-convert-VMs-to-MD.md)
+* Governance
+    - [Azure Policies](./azure-policies/articles/azure-policies-for-managed-disks.md)
+* Conversion for Virtual Machines
+    - Documentation
+        - [Convert virtual machines using PowerShell](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/convert-unmanaged-to-managed-disks)
+        - [Convert virtual machines using the AzureCLI](https://docs.microsoft.com/en-us/azure/virtual-machines/linux/convert-unmanaged-to-managed-disks)
+    - Code Examples
+        - *Coming Soon*
+* Conversion for Virtual Machine Scale Sets
+    - Documentation
+        - [Convert a scale set template to a managed disk scale set template](https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-convert-template-to-md)
 
 # Contributing
 
