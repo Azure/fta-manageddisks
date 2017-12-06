@@ -1,0 +1,272 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmSSName": {
+      "type": "string",
+      "metadata": {
+        "description": "The Name of the VM Scale Set"
+      }
+    },
+    "instanceCount": {
+      "type": "int",
+      "metadata": {
+        "description": "Number of VM instances to create in the scale set"
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "allowedValues": [
+        "Standard_D1",
+        "Standard_DS1",
+        "Standard_D2",
+        "Standard_DS2",
+        "Standard_D3",
+        "Standard_DS3",
+        "Standard_D4",
+        "Standard_DS4",
+        "Standard_D11",
+        "Standard_DS11",
+        "Standard_D12",
+        "Standard_DS12",
+        "Standard_D13",
+        "Standard_DS13",
+        "Standard_D14",
+        "Standard_DS14"
+      ],
+      "metadata": {
+        "description": "The size of the VM instances Created"
+      }
+    },
+    "dnsNamePrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "The Prefix for the DNS name of the new IP Address created"
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "The Username of the administrative user for each VM instance created"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The Password of the administrative user for each VM instance created"
+      }
+    },
+    "frontEndLBPort": {
+      "type": "int",
+      "metadata": {
+        "description": "The front end port to load balance"
+      },
+      "defaultValue": 80
+    },
+    "backEndLBPort": {
+      "type": "int",
+      "metadata": {
+        "description": "The back end port to load balance"
+      },
+      "defaultValue": 80
+    },
+    "probeIntervalInSeconds": {
+      "type": "int",
+      "metadata": {
+        "description": "The interval between load balancer health probes"
+      },
+      "defaultValue": 15
+    },
+    "numberOfProbes": {
+      "type": "int",
+      "metadata": {
+        "description": "The number of probes that need to fail before a VM instance is deemed unhealthy"
+      },
+      "defaultValue": 5
+    },
+    "probeRequestPath": {
+      "type": "string",
+      "metadata": {
+        "description": "The path used for the load balancer health probe"
+      },
+      "defaultValue": "/iisstart.htm"
+    },
+    "existingVnetResourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the resourceGroup for the existing virtual network to deploy the scale set into."
+      }
+    },
+    "existingVnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "vName of the existing virtual network to deploy the scale set into."
+      }
+    },
+    "existingSubnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the existing subnet to deploy the scale set into."
+      }
+    },
+    "existingImageResourceGroupName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the existing resource group for the managed custom image. This should exist in the same subscription and region as the VMSS"
+      }
+    },
+    "imagename": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the existing managed custom image. This should exist in the same subscription and region as the VMSS"
+      }
+    }
+  },
+  "variables": {
+    "publicIPAddressName": "publicip1",
+    "publicIPAddressID": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIPAddressName'))]",
+    "lbName": "loadBalancer1",
+    "lbID": "[resourceId('Microsoft.Network/loadBalancers',variables('lbName'))]",
+    "lbFEName": "loadBalancerFrontEnd",
+    "lbWebProbeName": "loadBalancerWebProbe",
+    "lbBEAddressPool": "loadBalancerBEAddressPool",
+    "lbFEIPConfigID": "[concat(variables('lbID'),'/frontendIPConfigurations/',variables('lbFEName'))]",
+    "lbBEAddressPoolID": "[concat(variables('lbID'),'/backendAddressPools/',variables('lbBEAddressPool'))]",
+    "lbWebProbeID": "[concat(variables('lbID'),'/probes/',variables('lbWebProbeName'))]"
+  },
+  "resources": [
+    {
+      "apiVersion": "2017-04-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('publicIPAddressName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "dnsSettings": {
+          "domainNameLabel": "[parameters('dnsNamePrefix')]"
+        }
+      }
+    },
+    {
+      "apiVersion": "2017-04-01",
+      "name": "[variables('lbName')]",
+      "type": "Microsoft.Network/loadBalancers",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/',variables('publicIPAddressName'))]"
+      ],
+      "properties": {
+        "frontendIPConfigurations": [
+          {
+            "name": "[variables('lbFEName')]",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[variables('publicIPAddressID')]"
+              }
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "[variables('lbBEAddressPool')]"
+          }
+        ],
+        "loadBalancingRules": [
+          {
+            "name": "weblb",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[variables('lbFEIPConfigID')]"
+              },
+              "backendAddressPool": {
+                "id": "[variables('lbBEAddressPoolID')]"
+              },
+              "probe": {
+                "id": "[variables('lbWebProbeID')]"
+              },
+              "protocol": "tcp",
+              "frontendPort": "[parameters('frontEndLBPort')]",
+              "backendPort": "[parameters('backEndLBPort')]",
+              "enableFloatingIP": false
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "[variables('lbWebProbeName')]",
+            "properties": {
+              "protocol": "Http",
+              "port": "[parameters('backEndLBPort')]",
+              "intervalInSeconds": "[parameters('probeIntervalInSeconds')]",
+              "numberOfProbes": "[parameters('numberOfProbes')]",
+              "requestPath": "[parameters('probeRequestPath')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachineScaleSets",
+      "apiVersion": "2017-03-30",
+      "name": "[parameters('vmSSName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/loadBalancers/',variables('lbName'))]"
+      ],
+      "sku": {
+        "name": "[parameters('vmSize')]",
+        "tier": "Standard",
+        "capacity": "[parameters('instanceCount')]"
+      },
+      "properties": {
+        "overprovision": "true",
+        "upgradePolicy": {
+          "mode": "Manual"
+        },
+        "virtualMachineProfile": {
+          "storageProfile": {
+            "imageReference": {
+              "id": "[resourceId(parameters('existingImageResourceGroupName'),'Microsoft.Compute/images', parameters('imageName'))]"
+            }
+          },
+          "osProfile": {
+            "computerNamePrefix": "[parameters('vmSSName')]",
+            "adminUsername": "[parameters('adminUsername')]",
+            "adminPassword": "[parameters('adminPassword')]"
+          },
+          "networkProfile": {
+            "networkInterfaceConfigurations": [
+              {
+                "name": "nic1",
+                "properties": {
+                  "primary": "true",
+                  "ipConfigurations": [
+                    {
+                      "name": "ip1",
+                      "properties": {
+                        "subnet": {
+                          "id": "[resourceId(parameters('existingVnetResourceGroupName'), 'Microsoft.Network/virtualNetworks/subnets', parameters('existingVnetName'), parameters('existingSubNetName'))]"
+                        },
+                        "loadBalancerBackendAddressPools": [
+                          {
+                            "id": "[variables('lbBEAddressPoolID')]"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {
+    "fqdn": {
+      "value": "[reference(variables('publicIPAddressID'),providers('Microsoft.Network','publicIPAddresses').apiVersions[0]).dnsSettings.fqdn]",
+      "type": "string"
+    }
+  }
+}
