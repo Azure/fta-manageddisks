@@ -2,7 +2,7 @@
 
 * [Introduction](#introduction)
 * [Prerequisites](#prerequisites)
-* [Script](#Script)
+* [Script](#script)
 
 ## Introduction
 The goal of this script is to convert an existing VM (single instance or in an Availability Set) to use managed disks. 
