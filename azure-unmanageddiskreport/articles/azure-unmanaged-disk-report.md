@@ -1,4 +1,4 @@
-# Azure Unmanaged Disks Report Script
+# Azure Unmanaged Disks Report
 
 * [Introduction](#introduction)
 * [Prerequisites](#prerequisites)
@@ -7,11 +7,11 @@
 * [Generating the Report](#generating-the-report)
 
 ## Introduction
-The purpose of this script is to provide a detailed report as a CSV on unmanaged disk information. This is targeted to identify the provisioned and used disk space for all virtual machines using unmanaged disks. 
+The purpose of this PowerShell script is to provide a detailed report as a CSV on unmanaged disk information. This is targeted to identify the provisioned and used disk space for all virtual machines using unmanaged disks. 
 
 ## Prerequisites
 To genereate this report, you will need:
-* Download the [UnmanagedDisksReport.ps1](./UnmanagedDisksReport.ps1).
+* Download the PowerShell script [UnmanagedDisksReport.ps1](./UnmanagedDisksReport.ps1).
 * You must have access to Microsoft Azure Subscription.
 * It is recommended to run this script as Contributor or Owner of the subscription. At a minimum, Reader and Storage Contributor permissions for the subscription are required.
 * Access to either the latest Azure PowerShell modules. They can be [downloaded here](https://www.powershellgallery.com/packages/AzureRM/).
