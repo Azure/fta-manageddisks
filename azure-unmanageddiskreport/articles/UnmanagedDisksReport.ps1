@@ -50,7 +50,7 @@ catch{
 }
 
 $timeStamp = Get-Date -Format yyyyMMddHHmm
-$VmOutputPath = "$ReportOutputFolder\VMUnmanagedDisk-$timeStamp.csv"
+$VmOutputPath = "$ReportOutputFolder\UnmanagedDisksResults-$timeStamp.csv"
 
 # This function will gather detailed information about unmanaged disks
 function GetUnmanagedDiskDetails{
