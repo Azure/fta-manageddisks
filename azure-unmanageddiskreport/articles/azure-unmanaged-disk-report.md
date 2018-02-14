@@ -18,6 +18,7 @@ To genereate this report, you will need:
 
 ## Paramaters
 **SubscriptionID** - Microsoft Azure Subscription ID to generate the report against
+
 **ReportOutputFolder** - Output location for the generated CSV report 
  
  ## Output
