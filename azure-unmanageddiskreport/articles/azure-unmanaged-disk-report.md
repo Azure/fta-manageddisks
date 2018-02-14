@@ -2,6 +2,8 @@
 
 * [Introduction](#introduction)
 * [Prerequisites](#prerequisites)
+* [Parameters](#parameters)
+* [Output](#output)
 * [Generating the Report](#generating-the-report)
 
 ## Introduction
@@ -23,7 +25,6 @@ To genereate this report, you will need:
 
 VmName| VmResourceGroup| Location| AvailabilitySet| VhdUri| StorageType (Standard/Premium)| DiskType (OS/Data)| ProvisionedSizeInGb| UsedSizeInGb| UsedDiskPercentage
 |---|---|---|---|---|---|---|---|---|---|
-VmName|VmResourceGroup|Location|AvailabilitySet|VhdUri|StorageType|DiskType|ProvisionedSizeInGb|UsedSizeInGb|UsedDiskPercentage
 OMScentos|77488-OMS|eastus2|CENTOS-AVSET|https://77488oms5025.blob.core.windows.net/vhds/OMScentos2016619201023.vhd|Standard|OS|30|2|0.06
 OMScentos2|77488-OMS|eastus2|CENTOS-AVSET|https://77488oms5025.blob.core.windows.net/vhds/OMScentos22016615161542.vhd|Standard|OS|30|2|0.08
 OMScentosDemo|77488-OMS|eastus2|CENTOS-AVSET|https://4zrgvjrvxqy7wstandardsa.blob.core.windows.net/vhds/OMScentosDemo20166208242.vhd|Standard|OS|30|2|0.05
