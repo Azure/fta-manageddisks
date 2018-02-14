@@ -16,7 +16,7 @@ To genereate this report, you will need:
 * It is recommended to run this script as Contributor or Owner of the subscription. At a minimum, Reader and Storage Contributor permissions for the subscription are required.
 * Access to either the latest Azure PowerShell modules. They can be [downloaded here](https://www.powershellgallery.com/packages/AzureRM/).
 
-## Paramaters
+## Parameters
 **SubscriptionID** - Microsoft Azure Subscription ID to generate the report against
 
 **ReportOutputFolder** - Output location for the generated CSV report 
