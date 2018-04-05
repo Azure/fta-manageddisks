@@ -18,8 +18,7 @@ See our [FastTrack for Azure landing page](https://github.com/Azure/FastTrackFor
 
 # Reporting
 
-* Unmanaged Disks
-    - [Gather unmanaged disk information for virtual machines in an Azure Subscription](./azure-unmanageddiskreport/articles/azure-unmanaged-disk-report.md)
+* *Coming Soon*
 
 # Contributing
 
