@@ -1,5 +1,7 @@
 # Convert a VM to Managed Disks using Powershell
 
+## Table of Contents
+
 * [Introduction](#introduction)
 * [Prerequisites](#prerequisites)
 * [Script](#script)
@@ -202,14 +204,3 @@ foreach($vmName in $vmArray)
 }
 
 Write-Output "Script has ended"
-
-
-
-
-
-
-
-
-
-
-
