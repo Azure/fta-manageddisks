@@ -3,7 +3,7 @@
  	==================================================================================================================================================================
 	Azure Managed Disks Program
 	File:		UnmanagedDisksReport.ps1
-	Purpose:	Generate a CSV report of unmanaged disk information for ARM virtual machines
+	Purpose:	Generate a CSV report of unmanaged disk information for unmanaged ARM virtual machines
 	Version: 	1.2 
     Changes:    1.2 - Updated for AzureRM version 6.*. Skip premium storage by default. Efficieny improvements. - June 2018
                 1.1 - Fixed GetPageRanges timeout errors - Feb 2018
@@ -17,7 +17,7 @@
  .PARAMTERS
     SubscriptionID - Azure subscription ID to run this script against
     ReportOutputFolder - Output location for the CSV generated in this script
-    SkipPremium - Enable the switch to skip gathering details on Premium unmanaged disks
+    IncludePremium - Enable the switch to include gathering details on Premium unmanaged disks
  .EXAMPLE
 		UnmanagedDisksReport.ps1 -SubscriptionID "xxxxx-xxxxxx-xxxxxxx-xxxxx" -ReportOutputFolder "C:\ScriptReports\"
    ===================================================================================================================================================================
@@ -92,21 +92,25 @@ function GetUnmanagedDiskDetails{
     $type = (Get-AzureRmStorageAccount -Name $storageAccount -ResourceGroupName $rg).Sku.Tier
 
     # Skip gathering information on premium unmanaged disks based on IncludePremium switch
-    if(($type -eq "Premium") -and !$IncludePremium){
+    if(($type -eq "Premium") -and !$IncludePremium)
+    {
         return New-Object psobject -Property @{Uri=$vhduri;StorageType=$type;ProvisionedSize="Skipped";UsedSize="Skipped";UsedDiskPercentage="Skipped"}
     }
 
     $storageAccountKey = (Get-AzureRMStorageAccountKey -Name $storageAccount -ResourceGroupName $rg)[0].Value
     $storageAccountContext = New-AzureStorageContext -StorageAccountName $storageAccount -StorageAccountKey $storageAccountKey 
 
-    try{
+    try
+    {
         $blob = Get-AzureStorageBlob -Blob $vhdFileName -Container $container -Context $storageAccountContext -ErrorAction Stop
     }
     # Catching any errors for getting the storage blob
-    catch{
-        Write-Host -ForegroundColor Red "There was an error while accessing the blob with the URI: $vhduri"
+    catch [Microsoft.WindowsAzure.Commands.Storage.Common.ResourceNotFoundException]
+    {
+        Write-Host -ForegroundColor Yellow "There was an error while accessing the blob $vhduri"
         Write-Host -ForegroundColor Red $_.Exception
         
+        $provisionedSizeInGib = -1
         $usedSizeInGiB = -1
         $usedDiskPercentage = -1
         return New-Object psobject -Property @{StorageType=$type;ProvisionedSize=$provisionedSizeInGib;UsedSize=$usedSizeInGiB;UsedDiskPercentage=$usedDiskPercentage}
@@ -171,15 +175,16 @@ function GetUnmanagedDiskDetails{
             
                 $iPageRangeSuccessRetries = 0
             }
-            catch
+            catch [System.Management.Automation.MethodInvocationException]
             {
                 $ErrorTime = Get-Date
                 $Timeout = $ErrorTime - $StartTime
 
-                Write-Host -ForegroundColor Yellow "Timeout In Seconds: $($Timeout.TotalSeconds)"
-                Write-Host -ForegroundColor Yellow "There was likely a GetPageRanges timeout while accessing the blob with the URI: $vhduri"
-                Write-Host -ForegroundColor Yellow "Attempt $(3 - $iPageRangeSuccessRetries) of 2"
+                # There was a timeout error during the GetPageRanges call
+                Write-Host -ForegroundColor Yellow "There was a server timeout while accessing the blob $vhduri"
+                Write-Host -ForegroundColor Yellow "Attempt $(3 - $iPageRangeSuccessRetries) of 2."
                 
+                # Retry the GetPageRanges call using the range size parameter. Higher likelihood of success but significantly slower.
                 if($iPageRangeSuccessRetries -eq 2) { Write-Host -ForegroundColor Yellow "Retrying using range size parameter..." }
 
                 Write-Host -ForegroundColor Red $_.Exception
@@ -206,7 +211,7 @@ function GetUnmanagedDiskDetails{
         }
         else
         {
-            Write-Host -ForegroundColor Red "Failed to retrieve used space for $vhduri"
+            Write-Host -ForegroundColor Red "Failed to retrieve used space for the blob $vhduri"
             $usedSizeInGiB = -1
             $usedDiskPercentage = -1
         }
@@ -215,6 +220,7 @@ function GetUnmanagedDiskDetails{
 
     return New-Object psobject -Property @{StorageType=$type;ProvisionedSize=$provisionedSizeInGib;UsedSize=$usedSizeInGiB;UsedDiskPercentage=$usedDiskPercentage}
 }
+# End function
 
 # Region Gather Unmanaged Disk Information
 
@@ -222,13 +228,13 @@ Write-Host "Gathering virtual machine information...`n"
 Write-Host "Progress Status:"
 Write-Host "[<Current Number> of <Total Number of Unmanaged VMs>] <VM Name>`n"
 
-# Get all ARM virtual machines and storage accounts
+# Get all unmanaged ARM virtual machines and storage accounts
 $vms = Get-AzureRmVM | where {$_.StorageProfile.OsDisk.ManagedDisk -eq $null}
 $storageAccounts = Get-AzureRmResource -ResourceType 'Microsoft.Storage/storageAccounts'  
 $unmanDisks = New-Object -TypeName System.Collections.ArrayList
 [int]$i = 1
 
-# Loop through each virtual machine and gather disk information for unmanaged disks only
+# Loop through each virtual machine and gather disk information
 foreach($vm in $vms){
 
     Write-Host "[$i of $($vms.Count)] $($vm.Name)"
