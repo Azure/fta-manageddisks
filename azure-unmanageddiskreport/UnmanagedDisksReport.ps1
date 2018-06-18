@@ -14,7 +14,7 @@
  .DESCRIPTION
     This script will gather information in an Azure subscription about unmanaged disks attached to ARM virtual machines 
     and at what capacity they are being used.
- .PARAMTERS
+ .PARAMETERS
     SubscriptionID - Azure subscription ID to run this script against
     ReportOutputFolder - Output location for the CSV generated in this script
     IncludePremium - Enable the switch to include gathering details on Premium unmanaged disks
