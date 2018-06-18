@@ -15,7 +15,8 @@ See our [FastTrack for Azure landing page](https://github.com/Azure/FastTrackFor
 * Conversion for Virtual Machine Scale Sets
     - Documentation
         - [Convert a scale set template to a managed disk scale set template](https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-convert-template-to-md)
-* *Coming Soon*: Reporting
+* Reporting
+    - [Used Disk Space for Azure Unmanaged Disks](./azure-unmanageddiskreport/azure-unmanaged-disk-report.md)
 
 # Contributing
 
