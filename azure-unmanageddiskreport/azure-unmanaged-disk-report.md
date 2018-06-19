@@ -3,11 +3,11 @@
 ## Table of Contents
 
 * [Introduction](#introduction)
-* [Learning Objectives](#learning-objectives)
+* [Learning objectives](#learning-objectives)
 * [Prerequisites](#prerequisites)
-* [Estimated Time to Complete](#estimated-time-to-complete)
+* [Estimated time to complete this module](#estimated-time-to-complete-this-module)
 * [Parameters](#parameters)
-* [Generating the Report](#walkthroughsection)
+* [Generating the report](#generating-the-report)
 * [Next steps](#nextsteps)
 
 ## Introduction
