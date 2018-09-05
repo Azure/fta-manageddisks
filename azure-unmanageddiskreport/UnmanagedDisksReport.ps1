@@ -4,8 +4,9 @@
 	Azure Managed Disks Program
 	File:		UnmanagedDisksReport.ps1
 	Purpose:	Generate a CSV report of unmanaged disk information for unmanaged ARM virtual machines
-	Version: 	1.2 
-    Changes:    1.2 - Updated for AzureRM version 6.*. Skip premium storage by default. Efficieny improvements. - June 2018
+	Version: 	1.3 
+    Changes:    1.3 - Updated to support multiple subscriptions. Added more error handling.
+                1.2 - Updated for AzureRM version 6.*. Skip premium storage by default. Efficieny improvements. - June 2018
                 1.1 - Fixed GetPageRanges timeout errors - Feb 2018
                 1.0 - Original
  	==================================================================================================================================================================
@@ -15,17 +16,24 @@
     This script will gather information in an Azure subscription about unmanaged disks attached to ARM virtual machines 
     and at what capacity they are being used.
  .PARAMETERS
-    SubscriptionID - Azure subscription ID to run this script against
+    SubscriptionIDs - Array of Azure subscription IDs to report on unmanaged ARM virtual machines
     ReportOutputFolder - Output location for the CSV generated in this script
     IncludePremium - Enable the switch to include gathering details on Premium unmanaged disks
  .EXAMPLE
-		UnmanagedDisksReport.ps1 -SubscriptionID "xxxxx-xxxxxx-xxxxxxx-xxxxx" -ReportOutputFolder "C:\ScriptReports\"
+    1. Run the script against 1 (one) subscription:
+        UnmanagedDisksReport.ps1 -SubscriptionIDs @("xxxxx-xxxxxx-xxxxxxx-xxxxx") -ReportOutputFolder "C:\ScriptReports\"
+    2. Run the script against more than 1 (one) subscription:
+        UnmanagedDisksReport.ps1 -SubscriptionIDs @("xxxxx-xxxxxx-xxxxxxx-xxxxx", "xxxxx-xxxxxx-xxxxxxx-xxxxx") -ReportOutputFolder "C:\ScriptReports\"
+    3. Run the script against all subscriptions the account has access to:
+        Login-AzureRmAccount
+        $subIDs = Get-AzureRmSubscription | Select -ExpandProperty Id
+        UnmanagedDisksReport.ps1 -SubscriptionIDs $subIDs -ReportOutputFolder "C:\ScriptReports\"
    ===================================================================================================================================================================
 #>
 
 param(
 	[Parameter(Mandatory=$true)]
-    [string]$SubscriptionID,
+    [array]$SubscriptionIDs,
     [Parameter(Mandatory=$true)]
     [string]$ReportOutputFolder,
     [Parameter(Mandatory=$false)]
@@ -34,6 +42,11 @@ param(
 
 Write-Output "Script start`n"
 
+##################################################
+# Region: Validation and login to Azure
+##################################################
+
+# Validate output folder path exists
 if(-not(Test-Path -Path $ReportOutputFolder)){
     throw "The output folder specified does not exist at $ReportOutputFolder"
 }
@@ -55,25 +68,36 @@ if (($modlist -eq $null) -or ($modlist.Version.Major -lt 6)){
 
 try{
     # login to Azure
-    # to skip logging into Azure for authenticated sessions, comment out the next 5 lines
+    # to skip logging into Azure for already authenticated sessions, comment out the next 5 lines
     $account = Login-AzureRmAccount
     if(!$account) {
-        Throw "Could not login to Azure"
+        throw "Could not login to Azure"
     }
-    Write-Output "Successfully logged into Azure"
-    
-    # set context to the subscription
-    Select-AzureRMSubscription -SubscriptionName $SubscriptionID
-    Write-Output "The subscription context is set to Subscription ID: $SubscriptionID`n"
+    Write-Host "Successfully logged into Azure"
 }
 catch{
-    Write-Error "Error logging in subscription ID $SubscriptionID`n" -ErrorAction Stop
+    throw "Error logging into Azure"
+}
+
+$context = Get-AzureRmContext
+[array]$subscriptions = Get-AzureRmSubscription | Select -ExpandProperty Id
+
+# Validate the account has access to each subscription
+foreach($subscriptionId in $SubscriptionIDs){
+    if(!$subscriptions.Contains($subscriptionId)){
+        throw "Account '$($context.Account.Id)' does not have access to subscription '$subscriptionId'"
+    }
 }
 
 $timeStamp = Get-Date -Format yyyyMMddHHmm
 $VmOutputPath = "$ReportOutputFolder\UnmanagedDisksResults-$timeStamp.csv"
 
-# This function will gather detailed information about unmanaged disks
+# End Region
+
+##################################################
+# Function: This function will gather detailed 
+#           information about an unmanaged disk
+##################################################
 function GetUnmanagedDiskDetails{
 
     param(
@@ -83,6 +107,7 @@ function GetUnmanagedDiskDetails{
 
     $diskUri = New-Object System.Uri($vhduri)
 
+    # Parse storage information
     $storageAccount =  $diskUri.Host.Split('.')[0]
     $vhdFileName = $diskUri.Segments[$diskUri.Segments.Length-1]
     $container = $diskUri.Segments[1].Trim('/')
@@ -144,14 +169,12 @@ function GetUnmanagedDiskDetails{
 
         while($iPageRangeSuccessRetries -ge 1)
         {
-            
             try
             { 
                 $StartTime = Get-Date
                
                 # True if this is the first attempt and call GetPageRanges without a page range
                 if($iPageRangeSuccessRetries -eq 2){
-
                     $Blob.ICloudBlob.GetPageRanges() | ForEach-Object { $blobSizeInBytes += (13 + $_.EndOffset - $_.StartOffset) } 
                 }
                 # This is the second attempt to GetPageRanges, adding a range size to reduce timeouts. This is much slower
@@ -220,90 +243,120 @@ function GetUnmanagedDiskDetails{
 
     return New-Object psobject -Property @{StorageType=$type;ProvisionedSize=$provisionedSizeInGib;UsedSize=$usedSizeInGiB;UsedDiskPercentage=$usedDiskPercentage}
 }
-# End function
+# End Function
 
-# Region Gather Unmanaged Disk Information
+##################################################
+# Region: Gather unmanaged disk information 
+#         across all subscriptions
+##################################################
 
 Write-Host "Gathering virtual machine information...`n"
-Write-Host "Progress Status:"
-Write-Host "[<Current Number> of <Total Number of Unmanaged VMs>] <VM Name>`n"
 
-# Get all unmanaged ARM virtual machines and storage accounts
-$vms = Get-AzureRmVM | where {$_.StorageProfile.OsDisk.ManagedDisk -eq $null}
-$storageAccounts = Get-AzureRmResource -ResourceType 'Microsoft.Storage/storageAccounts'  
 $unmanDisks = New-Object -TypeName System.Collections.ArrayList
-[int]$i = 1
 
-# Loop through each virtual machine and gather disk information
-foreach($vm in $vms){
+# Loop through each subscription
+foreach($subscriptionId in $SubscriptionIDs){
 
-    Write-Host "[$i of $($vms.Count)] $($vm.Name)"
-    $i++
+    # Set context to the subscription
+    Select-AzureRMSubscription -SubscriptionId $subscriptionID | Out-Null
+    $context = Get-AzureRmContext
+    Write-Host "The subscription context is set to: $($context.Name)`n"
 
-    if($vm.StorageProfile.OsDisk.Vhd){
-
-        # Gather unmnaged disk details and store as a PS custom object
-        $osDiskDetails = GetUnmanagedDiskDetails -vhduri $vm.StorageProfile.OsDisk.Vhd.Uri -storageAccounts $storageAccounts
-
-        $DiskObject = [PSCustomObject]@{
-            VMName = $VM.Name
-            VMResourceGroup = $VM.ResourceGroupName
-            Location = $VM.Location
-            AvailabilitySet = ""
-            VHDUri = $vm.StorageProfile.OsDisk.Vhd.Uri
-            StorageType = $osDiskDetails.StorageType
-            DiskType = "OS"
-            ProvisionedSizeInGB = $osDiskDetails.ProvisionedSize
-            UsedSizeInGB = $osDiskDetails.UsedSize
-            UsedDiskPercentage = $osDiskDetails.UsedDiskPercentage
-        }
-
-        if($vm.AvailabilitySetReference.Id){
-            $DiskObject.AvailabilitySet = ($vm.AvailabilitySetReference.Id | Split-Path -Leaf )                    
-        }   
-
-        [void]$unmanDisks.add($DiskObject)
+    # Get all unmanaged ARM virtual machines and storage accounts 
+    $vms = Get-AzureRmVM | where {$_.StorageProfile.OsDisk.ManagedDisk -eq $null}
+    # Check if any unmanaged ARM virtual machines exist within the subscription
+    if(!$vms){
+        Write-Host -ForegroundColor Red "The subscription '$($context.Name)' does not contain any unmanaged ARM virtual machines OR the account '$($context.Account.Id)' does not have appropriate RBAC permissions to view them."
+        continue
     }
 
-    foreach($disk in $vm.StorageProfile.DataDisks)
-    {
-        if($disk.Vhd){
-            
+    $storageAccounts = Get-AzureRmResource -ResourceType 'Microsoft.Storage/storageAccounts'
+    # Check the account can access storage accounts within the subscription
+    if(!$storageAccounts){
+        Write-Host -ForegroundColor Red "Account '$($context.Account.Id)' does not have access to any storage accounts in subscription '$($context.Name)' but the following unmanaged ARM virtual machines exist:"
+        $vms | ft ResourceGroupName, Name, Location
+        continue
+    }
+    
+    Write-Host "Progress Status:"
+    Write-Host "[<Current Number> of <Total Number of Unmanaged VMs>] <VM Name>`n"
+    [int]$i = 1
+
+    # Loop through each virtual machine and gather disk information
+    foreach($vm in $vms){
+
+        Write-Host "[$i of $($vms.Count)] $($vm.Name)"
+        $i++
+
+        if($vm.StorageProfile.OsDisk.Vhd){
+
             # Gather unmnaged disk details and store as a PS custom object
-            $dataDiskDetails = GetUnmanagedDiskDetails -vhduri $disk.Vhd.Uri -storageAccounts $storageAccounts
+            $osDiskDetails = GetUnmanagedDiskDetails -vhduri $vm.StorageProfile.OsDisk.Vhd.Uri -storageAccounts $storageAccounts
 
             $DiskObject = [PSCustomObject]@{
+                SubscriptionName = $context.Subscription.Name
+                SubscrpitionID = $context.Subscription.Id
                 VMName = $VM.Name
                 VMResourceGroup = $VM.ResourceGroupName
                 Location = $VM.Location
                 AvailabilitySet = ""
-                VHDUri = $disk.Vhd.Uri
-                StorageType = $dataDiskDetails.StorageType
-                DiskType = "Data"
-                ProvisionedSizeInGB = $dataDiskDetails.ProvisionedSize
-                UsedSizeInGB = $dataDiskDetails.UsedSize
-                UsedDiskPercentage = $dataDiskDetails.UsedDiskPercentage
+                VHDUri = $vm.StorageProfile.OsDisk.Vhd.Uri
+                StorageType = $osDiskDetails.StorageType
+                DiskType = "OS"
+                ProvisionedSizeInGB = $osDiskDetails.ProvisionedSize
+                UsedSizeInGB = $osDiskDetails.UsedSize
+                UsedDiskPercentage = $osDiskDetails.UsedDiskPercentage
             }
 
+            # Add availability set, if applicable
             if($vm.AvailabilitySetReference.Id){
                 $DiskObject.AvailabilitySet = ($vm.AvailabilitySetReference.Id | Split-Path -Leaf )                    
-            }
-            
-            [void]$unmanDisks.add($DiskObject)   
-        }
-    }
+            }   
 
+            [void]$unmanDisks.add($DiskObject)
+        }
+
+        foreach($disk in $vm.StorageProfile.DataDisks)
+        {
+            if($disk.Vhd){
+                
+                # Gather unmnaged disk details and store as a PS custom object
+                $dataDiskDetails = GetUnmanagedDiskDetails -vhduri $disk.Vhd.Uri -storageAccounts $storageAccounts
+
+                $DiskObject = [PSCustomObject]@{
+                    SubscriptionName = $context.Subscription.Name
+                    SubscrpitionID = $context.Subscription.Id
+                    VMName = $VM.Name
+                    VMResourceGroup = $VM.ResourceGroupName
+                    Location = $VM.Location
+                    AvailabilitySet = ""
+                    VHDUri = $disk.Vhd.Uri
+                    StorageType = $dataDiskDetails.StorageType
+                    DiskType = "Data"
+                    ProvisionedSizeInGB = $dataDiskDetails.ProvisionedSize
+                    UsedSizeInGB = $dataDiskDetails.UsedSize
+                    UsedDiskPercentage = $dataDiskDetails.UsedDiskPercentage
+                }
+
+                # Add availability set, if applicable
+                if($vm.AvailabilitySetReference.Id){
+                    $DiskObject.AvailabilitySet = ($vm.AvailabilitySetReference.Id | Split-Path -Leaf )                    
+                }
+                
+                [void]$unmanDisks.add($DiskObject)   
+            }
+        }
+
+    }
 }
 
 # If any unmanaged VMs exist, output results to CSV
 if($unmanDisks){
-
     # Output to CSV
     $unmanDisks | Export-Csv -Path $VmOutputPath -NoTypeInformation
     Write-Output "`nExported unmanaged disk report at $VmOutputPath`n"
 }
 else{
-
     Write-Output "`nNo virtual machines with unmanaged disks were found`n"
 }
 
