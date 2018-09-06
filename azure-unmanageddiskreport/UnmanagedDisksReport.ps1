@@ -22,7 +22,7 @@
  .EXAMPLE
     1. Run the script against 1 (one) subscription:
         .\UnmanagedDisksReport.ps1 -SubscriptionIDs @("xxxxx-xxxxxx-xxxxxxx-xxxxx") -ReportOutputFolder "C:\ScriptReports\"
-    2. Run the script against more than 1 (one) subscription:
+    2. Run the script against more than 1 (one) subscription and include premium:
         .\UnmanagedDisksReport.ps1 -SubscriptionIDs @("xxxxx-xxxxxx-xxxxxxx-xxxxx", "xxxxx-xxxxxx-xxxxxxx-xxxxx") -ReportOutputFolder "C:\ScriptReports\" -IncludePremium
     3. Run the script against all subscriptions the account has access to:
         Login-AzureRmAccount

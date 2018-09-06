@@ -8,7 +8,7 @@
 * [Estimated time to complete this module](#estimated-time-to-complete-this-module)
 * [Parameters](#parameters)
 * [Generating the report](#generating-the-report)
-* [Next steps](#nextsteps)
+* [Next steps](#next-steps)
 
 ## Introduction
 
@@ -46,7 +46,7 @@ The script runtime will vary based on the number of unmanaged disks in the subsc
 # Run the script against 1 (one) subscription:
 .\UnmanagedDisksReport.ps1 -SubscriptionIDs @("xxxxx-xxxxxx-xxxxxxx-xxxxx") -ReportOutputFolder "C:\ScriptReports\"
 
-# Run the script against more than 1 (one) subscription:
+# Run the script against more than 1 (one) subscription and include premium:
 .\UnmanagedDisksReport.ps1 -SubscriptionIDs @("xxxxx-xxxxxx-xxxxxxx-xxxxx", "xxxxx-xxxxxx-xxxxxxx-xxxxx") -ReportOutputFolder "C:\ScriptReports\" -IncludePremium
 
 # Run the script against all subscriptions the account has access to:
@@ -84,7 +84,7 @@ Progress Status:
 [2 of 3] ubuntu2
 [3 of 3] Centos-ARMTemplate1
 
-Exported unmanaged disk report at C:\ReportingResults\UnmanagedDisksResults-201806181524.csv
+Exported unmanaged disk report at C:\ReportingResults\UnmanagedDisksResults-201808181524.csv
 
 Script end
 ```
