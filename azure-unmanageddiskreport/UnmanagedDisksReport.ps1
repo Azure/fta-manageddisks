@@ -21,13 +21,13 @@
     IncludePremium - Enable the switch to include gathering details on Premium unmanaged disks
  .EXAMPLE
     1. Run the script against 1 (one) subscription:
-        UnmanagedDisksReport.ps1 -SubscriptionIDs @("xxxxx-xxxxxx-xxxxxxx-xxxxx") -ReportOutputFolder "C:\ScriptReports\"
+        .\UnmanagedDisksReport.ps1 -SubscriptionIDs @("xxxxx-xxxxxx-xxxxxxx-xxxxx") -ReportOutputFolder "C:\ScriptReports\"
     2. Run the script against more than 1 (one) subscription:
-        UnmanagedDisksReport.ps1 -SubscriptionIDs @("xxxxx-xxxxxx-xxxxxxx-xxxxx", "xxxxx-xxxxxx-xxxxxxx-xxxxx") -ReportOutputFolder "C:\ScriptReports\"
+        .\UnmanagedDisksReport.ps1 -SubscriptionIDs @("xxxxx-xxxxxx-xxxxxxx-xxxxx", "xxxxx-xxxxxx-xxxxxxx-xxxxx") -ReportOutputFolder "C:\ScriptReports\" -IncludePremium
     3. Run the script against all subscriptions the account has access to:
         Login-AzureRmAccount
         $subIDs = Get-AzureRmSubscription | Select -ExpandProperty Id
-        UnmanagedDisksReport.ps1 -SubscriptionIDs $subIDs -ReportOutputFolder "C:\ScriptReports\"
+        .\UnmanagedDisksReport.ps1 -SubscriptionIDs $subIDs -ReportOutputFolder "C:\ScriptReports\"
    ===================================================================================================================================================================
 #>
 
@@ -69,11 +69,11 @@ if (($modlist -eq $null) -or ($modlist.Version.Major -lt 6)){
 try{
     # login to Azure
     # to skip logging into Azure for already authenticated sessions, comment out the next 5 lines
-    $account = Login-AzureRmAccount
+    <#$account = Login-AzureRmAccount
     if(!$account) {
         throw "Could not login to Azure"
-    }
-    Write-Host "Successfully logged into Azure"
+    }#>
+    Write-Host "Successfully logged into Azure`n"
 }
 catch{
     throw "Error logging into Azure"
@@ -101,9 +101,11 @@ $VmOutputPath = "$ReportOutputFolder\UnmanagedDisksResults-$timeStamp.csv"
 function GetUnmanagedDiskDetails{
 
     param(
-        [Parameter(Mandatory=$true)] $vhduri,
-        [Parameter(Mandatory=$true)] $storageAccounts
-        )
+        [Parameter(Mandatory=$true)] 
+        [string]$vhduri,
+        [Parameter(Mandatory=$true)] 
+        [array]$storageAccounts
+    )
 
     $diskUri = New-Object System.Uri($vhduri)
 
