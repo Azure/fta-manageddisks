@@ -69,10 +69,10 @@ if (($modlist -eq $null) -or ($modlist.Version.Major -lt 6)){
 try{
     # login to Azure
     # to skip logging into Azure for already authenticated sessions, comment out the next 5 lines
-    <#$account = Login-AzureRmAccount
+    $account = Login-AzureRmAccount
     if(!$account) {
         throw "Could not login to Azure"
-    }#>
+    }
     Write-Host "Successfully logged into Azure`n"
 }
 catch{
