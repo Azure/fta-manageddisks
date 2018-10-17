@@ -58,7 +58,7 @@ if ($PSVersionTable.PSVersion.Major -lt 5) {
 }
 
 # Checking for Azure PowerShell module
-$modlist = Get-Module -ListAvailable -Name 'AzureRm'
+$modlist = Get-Module -ListAvailable -Name 'AzureRm' | sort Version -Descending | select -First 1
 if (($modlist -eq $null) -or ($modlist.Version.Major -lt 6)){
     Write-Host "Please install the AzureRM Powershell module, version 6.* or above." -ForegroundColor Red
     Write-Host "The latest Azure Powershell versions can be found in the following URL:" -ForegroundColor Red
