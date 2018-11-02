@@ -1,5 +1,7 @@
 # Convert a VM to Managed Disks using Powershell
 
+## Table of Contents
+
 * [Introduction](#introduction)
 * [Prerequisites](#prerequisites)
 * [Script](#script)
@@ -278,6 +280,7 @@ foreach($vmName in $vmArray){
     }
 }
 
+<<<<<<< HEAD:azure-convertvmtomd/articles/azure-convert-vms-to-md.md
 write-host "Script has ended" -ForegroundColor Green
 
 
@@ -310,3 +313,6 @@ write-host "Script has ended" -ForegroundColor Green
 
 
 
+=======
+Write-Output "Script has ended"
+>>>>>>> 87d8c543a4476984cf3de8e17fc7f2d0585965fb:azure-convertvmtomd/azure-convert-vms-to-md.md

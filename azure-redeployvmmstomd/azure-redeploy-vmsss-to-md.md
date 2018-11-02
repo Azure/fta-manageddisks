@@ -179,5 +179,3 @@ Modify your ARM templates as follows:
 * VMSS Upgrade plan is the same: Automatic vs. Manual between unmanaged VMSS and managed VMSS.
 * OS Disk caching is the same between unmanaged VMSS and managed VMSS.
 * Load Balancing configuration (load balancing rules, NAT rules, etc.) between unmanaged VMSS and managed VMSS.
- 
-
