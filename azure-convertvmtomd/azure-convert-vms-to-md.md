@@ -1,7 +1,5 @@
 # Convert a VM to Managed Disks using Powershell
 
-## Table of Contents
-
 * [Introduction](#introduction)
 * [Prerequisites](#prerequisites)
 * [Script](#script)
@@ -112,7 +110,6 @@ param(
 
 $vmarray = @()
 $diskcount = 0
-$count = 0
 
 try{
     #Login to Azure
@@ -198,6 +195,7 @@ foreach($vmName in $vmArray){
 
     if($NewDiskNames){
         #Create new OS Managed Disk with target naming convention
+        write-host "Creating new names for managed OS disk" -ForegroundColor Green
         $Vm = get-azurermvm -ResourceGroupName $VMsResourceGroup -Name ($NewDiskNames[$diskcount])
         $currentMDOSDisk = get-azurermdisk -ResourceGroupName $vm.ResourceGroupName -DiskName $vm.StorageProfile.OsDisk.Name
         $OSdiskConfig = New-AzureRmDiskConfig -SourceResourceId $currentMDOSDisk.Id -Location $currentMDOSDisk.Location -CreateOption Copy 
@@ -208,7 +206,8 @@ foreach($vmName in $vmArray){
         write-host "Finished updating managed OS disk to name: " $NewDiskNames[$diskcount] " for VM: " $VM.Name -ForegroundColor Green
     }else{
         #Create new OS Managed Disk with target naming convention
-        $Vm = get-azurermvm -ResourceGroupName $VMsResourceGroup -Name $VM.Name
+        write-host "Keeping old names for managed OS disk" -ForegroundColor Green
+        $Vm = get-azurermvm -ResourceGroupName $VMsResourceGroup -Name $vmName
         $currentMDOSDisk = get-azurermdisk -ResourceGroupName $vm.ResourceGroupName -DiskName $vm.StorageProfile.OsDisk.Name
         $OSdiskConfig = New-AzureRmDiskConfig -SourceResourceId $currentMDOSDisk.Id -Location $currentMDOSDisk.Location -CreateOption Copy 
 
@@ -224,51 +223,63 @@ foreach($vmName in $vmArray){
 
     # Collect New auto-generated MD Data Disks Names Data
     write-host "Collecting current managed data disks info VM: " $VM.Name -ForegroundColor Green
-    $vm = Get-AzureRmVM -ResourceGroupName $vm.ResourceGroupName -VMName $VM.Name
+    #$vm = Get-AzureRmVM -ResourceGroupName $vm.ResourceGroupName -VMName $VM.Name
     $vmnewdatadisks = $vm.StorageProfile.DataDisks
     write-host "Finished collecting current managed data disks info for VM: " $VM.Name -ForegroundColor Green
-
+    $vm.StorageProfile.DataDisks
+    
     #Move to Data Disk Info
     $diskcount++
+
+    #Counter for old data disks
+    $count = 0
 
     if($vmolddatadisks){
         Foreach($disk in $vmnewdatadisks){            
                 # Create a new managed disk with target naming convention
-                $oldDiskName = ($vmolddatadisks[$count]).Name
                 if($NewDiskNames){
+                    write-host "Creating new names for managed data disks" -ForegroundColor Green
                     write-host "Updating managed disk to name: " $NewDiskNames[$diskcount] " for VM: " $VM.Name -ForegroundColor Green
                     $currentMDDisk = get-azurermdisk -ResourceGroupName $vm.ResourceGroupName -DiskName $disk.name
                     $diskConfig = New-AzureRmDiskConfig -SourceResourceId $currentMDDisk.Id -Location $currentMDDisk.Location -CreateOption Copy 
                     New-AzureRmDisk -Disk $diskConfig -DiskName ($NewDiskNames[$diskcount]) -ResourceGroupName $vm.ResourceGroupName
                     # De-attach old Disks from VM
+                    write-host "De-attaching old disk: " $disk.name " for VM: " $VM.Name -ForegroundColor Green
                     Remove-AzureRmVMDataDisk -VM $vm -Name $disk.name
                     Update-AzureRmVM -ResourceGroupName $vm.ResourceGroupName -VM $vm
-                    # Re-attach new Disks to VM 
-                    $currentTargetDisk = Get-AzureRmDisk -ResourceGroupName $vm.ResourceGroupName -DiskName ($NewDiskNames[$diskcount])
-                    $vm = Add-AzureRmVMDataDisk -CreateOption Attach -DiskSizeInGB (($vmolddatadisks[$count]).DiskSizeGB) -Caching (($vmolddatadisks[$count]).Caching) -Lun (($vmolddatadisks[$count]).Lun) -VM $vm -ManagedDiskId $currentTargetDisk.Id
-                    Update-AzureRmVM -VM $vm -ResourceGroupName $vm.ResourceGroupName
+                    # Re-attach new Disks to VM  
+                    write-host "Attaching new disk: " $NewDiskNames[$diskcount] " for VM: " $VM.Name -ForegroundColor Green
+                    $currentTargetDisk = Get-AzureRmDisk -ResourceGroupName ($vm.ResourceGroupName) -DiskName ($NewDiskNames[$diskcount])
+                    $vm = Add-AzureRmVMDataDisk -CreateOption Attach -DiskSizeInGB (($vmolddatadisks[$count]).DiskSizeGB) -Caching (($vmolddatadisks[$count]).Caching) -Lun (($vmolddatadisks[$count]).Lun) -VM $vm -ManagedDiskId ($currentTargetDisk.Id)
+                    Update-AzureRmVM -VM $vm -ResourceGroupName ($vm.ResourceGroupName)
                     write-host "Finished updating managed disk to name: " $NewDiskNames[$diskcount] " for VM: " $VM.Name -ForegroundColor Green
-                    
+                    $diskcount++
+                   
                                 
                 }else{
-                    write-host "Updating managed disk to name: " $disk.name " for VM: " $VM.Name -ForegroundColor Green
+                    write-host "Keeping old names for managed data disks" -ForegroundColor Green
+                    write-host "Updating managed disk to name: " (($vmolddatadisks[$count]).name) " for VM: " $VM.Name -ForegroundColor Green
                     $currentMDDisk = get-azurermdisk -ResourceGroupName $vm.ResourceGroupName -DiskName $disk.name
                     $diskConfig = New-AzureRmDiskConfig -SourceResourceId $currentMDDisk.Id -Location $currentMDDisk.Location -CreateOption Copy 
                     New-AzureRmDisk -Disk $diskConfig -DiskName (($vmolddatadisks[$count]).name) -ResourceGroupName $vm.ResourceGroupName
                     # De-attach old Disks from VM
+                    write-host "De-attaching old disk: " $disk.name " for VM: " $VM.Name -ForegroundColor Green
                     Remove-AzureRmVMDataDisk -VM $vm -Name $disk.name
                     Update-AzureRmVM -ResourceGroupName $vm.ResourceGroupName -VM $vm
                     # Re-attach new Disks to VM 
-                    $currentTargetDisk = Get-AzureRmDisk -ResourceGroupName $vm.ResourceGroupName -DiskName (($vmolddatadisks[$count]).Name)
-                    $vm = Add-AzureRmVMDataDisk -CreateOption Attach -DiskSizeInGB (($vmolddatadisks[$count]).DiskSizeGB) -Caching (($vmolddatadisks[$count]).Caching) -Lun (($vmolddatadisks[$count]).Lun) -VM $vm -ManagedDiskId $currentTargetDisk.Id
-                    Update-AzureRmVM -VM $vm -ResourceGroupName $vm.ResourceGroupName
-                    write-host "Finished updating managed disk to name: " $disk.name " for VM: " $VM.Name -ForegroundColor Green
+                    write-host "Attaching new disk: " (($vmolddatadisks[$count]).Name) " for VM: " $VM.Name -ForegroundColor Green
+                    $currentTargetDisk = Get-AzureRmDisk -ResourceGroupName ($vm.ResourceGroupName) -DiskName (($vmolddatadisks[$count]).Name)
+                    $vm = Add-AzureRmVMDataDisk -CreateOption Attach -DiskSizeInGB (($vmolddatadisks[$count]).DiskSizeGB) -Caching (($vmolddatadisks[$count]).Caching) -Lun (($vmolddatadisks[$count]).Lun) -VM $vm -ManagedDiskId ($currentTargetDisk.Id)
+                    Update-AzureRmVM -VM $vm -ResourceGroupName ($vm.ResourceGroupName)
+                    write-host "Finished updating managed disk to name: " (($vmolddatadisks[$count]).name) " for VM: " $VM.Name -ForegroundColor Green
+                
                 }
-                $diskcount++
+                
                 $count++ 
         }
         
     }
+
     #Restart VMs
     write-host "Starting VM: " $VM.Name -ForegroundColor Green
     Start-AzureRmVM -ResourceGroupName $vm.ResourceGroupName -Name $vm.Name
@@ -280,7 +291,6 @@ foreach($vmName in $vmArray){
     }
 }
 
-<<<<<<< HEAD:azure-convertvmtomd/articles/azure-convert-vms-to-md.md
 write-host "Script has ended" -ForegroundColor Green
 
 
@@ -312,7 +322,3 @@ write-host "Script has ended" -ForegroundColor Green
 
 
 
-
-=======
-Write-Output "Script has ended"
->>>>>>> 87d8c543a4476984cf3de8e17fc7f2d0585965fb:azure-convertvmtomd/azure-convert-vms-to-md.md
