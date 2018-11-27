@@ -1,11 +1,15 @@
-﻿<#
+<#
 .NOTES
  	==================================================================================================================================================================
 	Azure Managed Disks Program
 	File:		UnmanagedDisksReport.ps1
 	Purpose:	Generate a CSV report of unmanaged disk information for unmanaged ARM virtual machines
-	Version: 	1.3 
-    Changes:    1.3 - Updated to support multiple subscriptions. Added more error handling.
+	Version: 	1.4
+    Changes:    1.4 - Date Modified: 11/27/2018
+                      Updated to support optional parameter of a specific virtual machine and to dump to CSV or simply display
+                      Updated to use new Az PowerShell cmdlets
+		      Add Lun for disk information displayed/reported
+                1.3 - Updated to support multiple subscriptions. Added more error handling.
                 1.2 - Updated for AzureRM version 6.*. Skip premium storage by default. Efficieny improvements. - June 2018
                 1.1 - Fixed GetPageRanges timeout errors - Feb 2018
                 1.0 - Original
@@ -37,7 +41,13 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$ReportOutputFolder,
     [Parameter(Mandatory=$false)]
-    [switch]$IncludePremium
+    [switch]$IncludePremium,
+    [Parameter(Mandatory=$false)]
+    [string]$VMName,
+    [Parameter(Mandatory=$false)]
+    [string]$ResourceGroup,
+    [Parameter(Mandatory=$false)]
+    [string]$ExportToCSV=$true
 )
 
 Write-Output "Script start`n"
@@ -47,29 +57,29 @@ Write-Output "Script start`n"
 ##################################################
 
 # Validate output folder path exists
-if(-not(Test-Path -Path $ReportOutputFolder)){
+if(-not(Test-Path -Path $ReportOutputFolder) -and $ExportToCSV -eq $true){
     throw "The output folder specified does not exist at $ReportOutputFolder"
 }
 
 # Checking for Windows PowerShell version
 if ($PSVersionTable.PSVersion.Major -lt 5) {
-    Write-Host "Windows PowerShell version 5.0 or above must be installed to use the latest AzureRM PowerShell modules." -ForegroundColor Red
+    Write-Host "Windows PowerShell version 5.0 or above must be installed to use the latest Azure PowerShell modules." -ForegroundColor Red
     Exit -2
 }
 
 # Checking for Azure PowerShell module
-$modlist = Get-Module -ListAvailable -Name 'AzureRm' | sort Version -Descending | select -First 1
-if (($modlist -eq $null) -or ($modlist.Version.Major -lt 6)){
-    Write-Host "Please install the AzureRM Powershell module, version 6.* or above." -ForegroundColor Red
+$modlist = Get-Module -ListAvailable -Name 'Az.*' | Sort-Object Version -Descending | Select-Object -First 1
+if ($modlist -eq $null){
+    Write-Host "Please install the Azure Az Powershell modules." -ForegroundColor Red
     Write-Host "The latest Azure Powershell versions can be found in the following URL:" -ForegroundColor Red
-    Write-Host "https://www.powershellgallery.com/packages/AzureRM/" -ForegroundColor Red
+    Write-Host "https://www.powershellgallery.com/packages/Az/" -ForegroundColor Red
     Exit -2
 }
 
 try{
     # login to Azure
     # to skip logging into Azure for already authenticated sessions, comment out the next 5 lines
-    $account = Login-AzureRmAccount
+    $account = Login-AzAccount
     if(!$account) {
         throw "Could not login to Azure"
     }
@@ -79,8 +89,8 @@ catch{
     throw "Error logging into Azure"
 }
 
-$context = Get-AzureRmContext
-[array]$subscriptions = Get-AzureRmSubscription | Select -ExpandProperty Id
+$context = Get-AzContext
+[array]$subscriptions = Get-AzSubscription | Select-Object -ExpandProperty Id
 
 # Validate the account has access to each subscription
 foreach($subscriptionId in $SubscriptionIDs){
@@ -116,7 +126,7 @@ function GetUnmanagedDiskDetails{
 
     $rg = ($storageAccounts | Where-Object { $_.Name -eq $storageAccount }).ResourceGroupName
 
-    $type = (Get-AzureRmStorageAccount -Name $storageAccount -ResourceGroupName $rg).Sku.Tier
+    $type = (Get-AzStorageAccount -Name $storageAccount -ResourceGroupName $rg).Sku.Tier
 
     # Skip gathering information on premium unmanaged disks based on IncludePremium switch
     if(($type -eq "Premium") -and !$IncludePremium)
@@ -124,12 +134,12 @@ function GetUnmanagedDiskDetails{
         return New-Object psobject -Property @{Uri=$vhduri;StorageType=$type;ProvisionedSize="Skipped";UsedSize="Skipped";UsedDiskPercentage="Skipped"}
     }
 
-    $storageAccountKey = (Get-AzureRMStorageAccountKey -Name $storageAccount -ResourceGroupName $rg)[0].Value
-    $storageAccountContext = New-AzureStorageContext -StorageAccountName $storageAccount -StorageAccountKey $storageAccountKey 
+    $storageAccountKey = (Get-AzStorageAccountKey -Name $storageAccount -ResourceGroupName $rg)[0].Value
+    $storageAccountContext = New-AzStorageContext -StorageAccountName $storageAccount -StorageAccountKey $storageAccountKey 
 
     try
     {
-        $blob = Get-AzureStorageBlob -Blob $vhdFileName -Container $container -Context $storageAccountContext -ErrorAction Stop
+        $blob = Get-AzStorageBlob -Blob $vhdFileName -Container $container -Context $storageAccountContext -ErrorAction Stop
     }
     # Catching any errors for getting the storage blob
     catch [Microsoft.WindowsAzure.Commands.Storage.Common.ResourceNotFoundException]
@@ -203,7 +213,6 @@ function GetUnmanagedDiskDetails{
             catch [System.Management.Automation.MethodInvocationException]
             {
                 $ErrorTime = Get-Date
-                $Timeout = $ErrorTime - $StartTime
 
                 # There was a timeout error during the GetPageRanges call
                 Write-Host -ForegroundColor Yellow "There was a server timeout while accessing the blob $vhduri"
@@ -217,7 +226,7 @@ function GetUnmanagedDiskDetails{
                 #reset to original value to avoid page ranges to be added multiple times in a retry
                 $blobSizeInBytes = 124 + $blob.Name.Length * 2 
 
-                Sleep -Seconds 2
+                Start-Sleep -Seconds 2
             }
             finally
             {
@@ -260,23 +269,55 @@ $unmanDisks = New-Object -TypeName System.Collections.ArrayList
 foreach($subscriptionId in $SubscriptionIDs){
 
     # Set context to the subscription
-    Select-AzureRMSubscription -SubscriptionId $subscriptionID | Out-Null
-    $context = Get-AzureRmContext
+    Select-AzSubscription -SubscriptionId $subscriptionID | Out-Null
+    $context = Get-AzContext
     Write-Host "The subscription context is set to: $($context.Name)`n"
 
-    # Get all unmanaged ARM virtual machines and storage accounts 
-    $vms = Get-AzureRmVM | where {$_.StorageProfile.OsDisk.ManagedDisk -eq $null}
-    # Check if any unmanaged ARM virtual machines exist within the subscription
-    if(!$vms){
-        Write-Host -ForegroundColor Red "The subscription '$($context.Name)' does not contain any unmanaged ARM virtual machines OR the account '$($context.Account.Id)' does not have appropriate RBAC permissions to view them."
-        continue
-    }
+    # Determine if we should get a single VM or Multiple
+    if([string]::IsNullOrEmpty($VMname)){
+        # Validate I have all the parameters
+        if($VMName -eq $null){
+            while([string]::IsNullOrEmpty($VMName)){
+                $VMName = Read-Host -Prompt "Please enter a Virtual Machine Name"
+            }
+        }
 
-    $storageAccounts = Get-AzureRmResource -ResourceType 'Microsoft.Storage/storageAccounts'
+        if([string]::IsNullOrEmpty($ResourceGroup)){
+            while([string]::IsNullOrEmpty($ResourceGroup)){
+                $ResourceGroup = Read-Host -Prompt "Please enter the Resource Group for your Virtual Machine"
+            }
+        }
+
+        # Finish code to the virtual machine
+        $vms = Get-AzVM -ResourceGroupName $ResourceGroup -Name $VMName
+        
+        # Check if the VM exists
+        if(!$vms){
+            Write-Host -ForegroundColor Red "The subscription '$($context.Name)' does not contain Virtual Machine '$($VMName)' OR the account '$($context.Account.Id)' does not have appropriate RBAC permissions to view the requested Virtual Machine."
+            continue
+        }
+        
+        # Check if the VM is using managed or unmanaged disks
+        if($vms.StorageProfile.OsDisk.ManagedDisk){        
+            Write-Host -ForegroundColor Red "The subscription '$($context.Name)' contains Virtual Machine '$($VMName)', however the Virtual Machine is already using Managed Disks."
+            continue
+        }
+
+    }else{
+        # Get all unmanaged ARM virtual machines and storage accounts 
+        $vms = Get-AzVM | Where-Object {$_.StorageProfile.OsDisk.ManagedDisk -eq $null}
+        # Check if any unmanaged ARM virtual machines exist within the subscription
+        if(!$vms){
+            Write-Host -ForegroundColor Red "The subscription '$($context.Name)' does not contain any unmanaged ARM virtual machines OR the account '$($context.Account.Id)' does not have appropriate RBAC permissions to view them."
+            continue
+        }
+    }    
+
+    $storageAccounts = Get-AzResource -ResourceType 'Microsoft.Storage/storageAccounts'
     # Check the account can access storage accounts within the subscription
     if(!$storageAccounts){
         Write-Host -ForegroundColor Red "Account '$($context.Account.Id)' does not have access to any storage accounts in subscription '$($context.Name)' but the following unmanaged ARM virtual machines exist:"
-        $vms | ft ResourceGroupName, Name, Location
+        $vms | Format-Table ResourceGroupName, Name, Location
         continue
     }
     
@@ -305,6 +346,7 @@ foreach($subscriptionId in $SubscriptionIDs){
                 VHDUri = $vm.StorageProfile.OsDisk.Vhd.Uri
                 StorageType = $osDiskDetails.StorageType
                 DiskType = "OS"
+                Lun = "N/A"
                 ProvisionedSizeInGB = $osDiskDetails.ProvisionedSize
                 UsedSizeInGB = $osDiskDetails.UsedSize
                 UsedDiskPercentage = $osDiskDetails.UsedDiskPercentage
@@ -335,6 +377,7 @@ foreach($subscriptionId in $SubscriptionIDs){
                     VHDUri = $disk.Vhd.Uri
                     StorageType = $dataDiskDetails.StorageType
                     DiskType = "Data"
+                    Lun = $disk.Lun
                     ProvisionedSizeInGB = $dataDiskDetails.ProvisionedSize
                     UsedSizeInGB = $dataDiskDetails.UsedSize
                     UsedDiskPercentage = $dataDiskDetails.UsedDiskPercentage
@@ -354,9 +397,30 @@ foreach($subscriptionId in $SubscriptionIDs){
 
 # If any unmanaged VMs exist, output results to CSV
 if($unmanDisks){
+
     # Output to CSV
-    $unmanDisks | Export-Csv -Path $VmOutputPath -NoTypeInformation
-    Write-Output "`nExported unmanaged disk report at $VmOutputPath`n"
+    if($ExportToCSV -eq $true){
+        $unmanDisks | Export-Csv -Path $VmOutputPath -NoTypeInformation
+        Write-Output "`nExported unmanaged disk report at $VmOutputPath`n"
+    }else{
+        foreach($disk in $unmanDisks){
+            Write-Host "------------------------------------------------------"
+            Write-Host ("Disk details for VM: {0}" -f $disk.VMName)
+            Write-Host "------------------------------------------------------"
+            Write-Host ("Subscription Name: {0}" -f $disk.SubscriptionName)
+            Write-Host ("Subscription ID: {0}" -f $disk.SubscrpitionID)
+            Write-Host ("Location: {0}" -f $disk.Location)
+            Write-Host ("Availability Set: {0}" -f $disk.AvailabilitySet)
+            Write-Host ("VHD Uri: {0}" -f $disk.VHDUri)
+            Write-Host ("StorageType: {0}" -f $disk.StorageType)
+            Write-Host ("Disk Type: {0}" -f $disk.DiskType)
+            Write-Host ("Lun: {0}" -f $disk.Lun)
+            Write-Host ("Provisioned Size In GB: {0}" -f $disk.ProvisionedSizeInGB)
+            Write-Host ("Used Size In GB: {0}" -f $disk.UsedSizeInGB)
+            Write-Host ("Used Disk Percentage: {0}" -f $disk.UsedDiskPercentage)
+        }
+    }
+
 }
 else{
     Write-Output "`nNo virtual machines with unmanaged disks were found`n"
