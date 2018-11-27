@@ -8,7 +8,7 @@
     Changes:    1.4 - Date Modified: 11/27/2018
                       Updated to support optional parameter of a specific virtual machine and to dump to CSV or simply display
                       Updated to use new Az PowerShell cmdlets
-		      Add Lun for disk information displayed/reported
+		      Added Lun for disk information displayed/reported
                 1.3 - Updated to support multiple subscriptions. Added more error handling.
                 1.2 - Updated for AzureRM version 6.*. Skip premium storage by default. Efficieny improvements. - June 2018
                 1.1 - Fixed GetPageRanges timeout errors - Feb 2018
