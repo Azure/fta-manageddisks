@@ -1,3 +1,7 @@
+# Important
+
+With the disbandment of the FastTrack for Azure organization, this respository is being archived and will no longer be maintained.
+
 # FastTrack for Azure
 
 See our [FastTrack for Azure landing page](https://github.com/Azure/FastTrackForAzure) for more information.
